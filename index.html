@@ -34,7 +34,7 @@
       position: relative;
       width: 100%;
       height: 100%;
-      overflow: hidden;
+      overflow: auto;   /* 확대 후 드래그(스크롤) 가능하게 */
     }
     #map-image {
       display: block;
@@ -241,7 +241,7 @@
 
     /* ===== 거점 라벨 ===== */
     .node-label {
-      font-size: 10px;
+      font-size: 9px;   /* 더 작게 */
       fill: #fff;
       text-anchor: middle;
       dominant-baseline: hanging;
@@ -319,7 +319,7 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 <script>
-  // Firebase 설정 (사용하던 그대로)
+  // Firebase 설정 (그대로)
   const firebaseConfig = {
     apiKey: "AIzaSyCLoTe7mwaCbZwdfWboOwai2-CyKX-Pjx8",
     authDomain: "fir-console-90c30.firebaseapp.com",
@@ -491,9 +491,8 @@
   });
 
   // ===== 지도 / 거점 / 화살표 =====
-  const mapImage   = document.getElementById("map-image");
-  const overlay    = document.getElementById("map-overlay");
-  const mapWrapper = document.getElementById("map-wrapper");
+  const mapImage     = document.getElementById("map-image");
+  const overlay      = document.getElementById("map-overlay");
   const mapContainer = document.getElementById("map-container");
 
   let nodes = {};
@@ -617,9 +616,8 @@
 
   // 지도 빈 곳 클릭 → 새 거점
   mapContainer.addEventListener("click", e => {
-    // SVG 위의 노드 클릭은 g에서 stopPropagation 할 거라 여기 안 옴
+    // SVG 위 노드 클릭은 g에서 stopPropagation 해서 여기 안 옴
     if (arrowStartNodeId) {
-      // 화살표 시작 상태에서 빈 곳 클릭 → 취소
       arrowStartNodeId = null;
       alert("화살표 시작이 취소되었습니다.");
       return;
@@ -639,7 +637,7 @@
     });
   });
 
-  // 전체 그리기
+  // 전체 그리기 (라벨은 실제 BBox로 딱 맞게)
   function drawAll() {
     const rect = mapImage.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return;
@@ -679,7 +677,7 @@
 
       const color = fromNode.color || "#ffffff";
       path.setAttribute("stroke", color);
-      path.style.color = color; // 화살표 머리 색
+      path.style.color = color;
       path.setAttribute("stroke-width", "3");
       path.setAttribute("fill", "none");
       path.setAttribute("class", "link-blink");
@@ -708,43 +706,57 @@
         const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
         c.setAttribute("cx", p.x);
         c.setAttribute("cy", p.y);
-        c.setAttribute("r", 7);
+        c.setAttribute("r", 5);               // 🔹 더 작게
         c.setAttribute("fill", node.color || "#ffffff");
         symbolEl = c;
       } else {
         const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
         t.setAttribute("x", p.x - 6);
         t.setAttribute("y", p.y + 4);
-        t.setAttribute("font-size", "14");
+        t.setAttribute("font-size", "12");    // 🔹 아이콘 텍스트도 조금 줄임
         t.setAttribute("fill", node.color || "#ffffff");
         t.textContent = (shape === "sun") ? "☀" : "🌙";
         symbolEl = t;
       }
       g.appendChild(symbolEl);
 
-      // 라벨 배경 + 텍스트
       const name = node.name || "";
+      let label = null;
+      let bg    = null;
+
       if (name) {
-        const approxWidth = Math.max(30, name.length * 7);
-        const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        bg.setAttribute("x", p.x - approxWidth / 2);
-        bg.setAttribute("y", p.y + 8);
-        bg.setAttribute("width", approxWidth);
-        bg.setAttribute("height", 14);
+        // 1) 먼저 텍스트를 만들어서 그룹에 추가
+        label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        label.setAttribute("x", p.x);
+        label.setAttribute("y", p.y + 10);
+        label.setAttribute("class", "node-label");
+        label.textContent = name;
+        g.appendChild(label);
+
+        // 2) BBox로 실제 너비/높이 계산
+        overlay.appendChild(g);      // DOM에 붙여야 getBBox 동작
+        const bbox = label.getBBox();
+        const padX = 3;
+        const padY = 1;
+
+        bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        bg.setAttribute("x", bbox.x - padX);
+        bg.setAttribute("y", bbox.y - padY);
+        bg.setAttribute("width", bbox.width + padX * 2);
+        bg.setAttribute("height", bbox.height + padY * 2);
         bg.setAttribute("fill", "rgba(0,0,0,0.75)");
         bg.setAttribute("rx", "3");
         bg.setAttribute("ry", "3");
 
-        const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        label.setAttribute("x", p.x);
-        label.setAttribute("y", p.y + 18);
-        label.setAttribute("class", "node-label");
-        label.textContent = name;
-
-        g.appendChild(bg);
+        // 텍스트 뒤로 배경을 넣기 위해 다시 정리
+        g.removeChild(label);
+        g.insertBefore(bg, g.firstChild.nextSibling); // 심볼 다음에 bg
         g.appendChild(label);
+      } else {
+        overlay.appendChild(g);
       }
 
+      // 노드 클릭 (색/모양 변경, 삭제, 화살표 시작)
       g.addEventListener("click", ev => {
         ev.stopPropagation();
 
@@ -760,13 +772,11 @@
         }
 
         if (arrowStartNodeId === id) {
-          // 자기 자신 다시 클릭 → 취소
           arrowStartNodeId = null;
           alert("화살표 시작이 취소되었습니다.");
           return;
         }
 
-        // 메뉴: 색/모양 변경, 삭제, 화살표 시작
         const sel = prompt("1: 색/모양 변경\n2: 거점 삭제\n3: 이 거점에서 화살표 시작", "1");
         if (sel === "1") {
           openColorShapePicker((color, shapeSel) => {
@@ -778,7 +788,6 @@
           });
         } else if (sel === "2") {
           if (!confirm("이 거점을 삭제할까요? (연결된 화살표도 삭제됨)")) return;
-          // 이 거점과 연결된 화살표 삭제
           Object.entries(links || {}).forEach(([lid, l]) => {
             if (l.from === id || l.to === id) {
               linksRef.child(lid).remove();
@@ -791,7 +800,10 @@
         }
       });
 
-      overlay.appendChild(g);
+      // 이미 overlay에 붙인 상태가 아니라면 여기서 붙이기
+      if (!overlay.contains(g)) {
+        overlay.appendChild(g);
+      }
     });
   }
 
