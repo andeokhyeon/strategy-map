@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <title>모바일 전략 지도 보드</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <style>
     * { box-sizing: border-box; }
     body {
@@ -13,46 +14,333 @@
       color: #f5f5f5;
       overflow-x: hidden;
     }
-    #map-wrapper, #chat-section, #team-section {
+
+    /* ===== 공통 섹션 테두리 ===== */
+    #map-wrapper,
+    #chat-section,
+    #team-section {
       border: 1px solid #333;
       border-radius: 10px;
-      margin: 6px;
+      margin: 6px 6px 0;
       background: #111;
     }
-    #map-wrapper { position: relative; width: 100%; height: 55vh; overflow: hidden; }
-    #map-container { position: relative; width: 100%; height: 100%; overflow: auto; }
-    #map-image { display: block; width: 100%; height: auto; }
-    #map-overlay { position: absolute; left: 0; top: 0; pointer-events: none; }
 
-    #zoom-bar { position: absolute; right: 8px; top: 8px; background: rgba(0,0,0,0.6); border-radius: 999px; padding: 3px 6px; display: flex; gap: 4px; font-size: 11px; }
-    .zoom-btn { border: none; background: #2f2f2f; color: #eee; border-radius: 999px; width: 22px; height: 22px; cursor: pointer; }
+    /* ===== 지도 섹션 ===== */
+    #map-wrapper {
+      position: relative;
+      width: 100%;
+      height: 55vh;
+      background: #000;
+      overflow: hidden;
+    }
+    #map-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: auto;  /* 확대 후 드래그 가능 */
+    }
+    #map-image {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    #map-overlay {
+      position: absolute;
+      left: 0;
+      top: 0;
+      pointer-events: none;
+    }
 
-    #chat-section { padding: 8px; background: #101010; }
-    #chat-header { display: flex; justify-content: space-between; margin-bottom: 4px; }
-    #chat-messages { max-height: 40vh; overflow-y: auto; background: #181818; border-radius: 8px; padding: 8px; margin-bottom: 6px; font-size: 13px; }
+    /* 줌 컨트롤 */
+    #zoom-bar {
+      position: absolute;
+      right: 8px;
+      top: 8px;
+      z-index: 10;
+      background: rgba(0,0,0,0.6);
+      border-radius: 999px;
+      padding: 2px 6px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+    }
+    .zoom-btn {
+      border: none;
+      background: #2f2f2f;
+      color: #eee;
+      border-radius: 999px;
+      width: 22px;
+      height: 22px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    #zoom-label {
+      min-width: 38px;
+      text-align: center;
+    }
+
+    /* ===== 채팅 + 접속자 섹션 ===== */
+    #chat-section {
+      background: #101010;
+      padding: 8px;
+    }
+    #chat-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+    #nickname-display {
+      font-weight: 600;
+      color: #ffd54f;
+      margin-right: 6px;
+    }
+    #presence-info {
+      font-size: 12px;
+      color: #ccc;
+    }
+    .small-btn {
+      background: #2f2f2f;
+      color: #eee;
+      border: none;
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-size: 11px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .small-btn:hover {
+      background: #3a3a3a;
+    }
+    #chat-messages {
+      max-height: 25vh;
+      overflow-y: auto;
+      background: #181818;
+      border-radius: 8px;
+      padding: 8px;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
     .chat-msg { margin-bottom: 4px; }
     .chat-nick { font-weight: 600; color: #ffcc66; margin-right: 4px; }
-    #chat-input { flex: 1; border-radius: 999px; border: 1px solid #333; padding: 8px 10px; background: #181818; color: #fff; }
-    #chat-send-btn { border: none; border-radius: 999px; background: #3f8cff; color: #fff; padding: 0 14px; cursor: pointer; }
+    .chat-time { font-size: 11px; color: #777; margin-left: 6px; }
 
-    #team-section { background: #141414; padding: 8px; margin-bottom: 8px; }
-    #taego-link { text-decoration: none; font-size: 11px; border-radius: 999px; padding: 3px 8px; background: #3949ab; color: #fff; }
+    #chat-form {
+      display: flex;
+      gap: 6px;
+    }
+    #chat-input {
+      flex: 1;
+      border-radius: 999px;
+      border: 1px solid #333;
+      padding: 8px 10px;
+      background: #181818;
+      color: #fff;
+      font-size: 13px;
+    }
+    #chat-input::placeholder {
+      color: #666;
+    }
+    #chat-send-btn {
+      border: none;
+      border-radius: 999px;
+      background: #3f8cff;
+      color: #fff;
+      padding: 0 14px;
+      cursor: pointer;
+      font-size: 13px;
+    }
 
-    #node-menu { position: fixed; z-index: 120; background: rgba(20,20,20,0.95); border-radius: 12px; border: 1px solid #555; padding: 8px; min-width: 160px; box-shadow: 0 10px 24px rgba(0,0,0,0.8); }
-    .node-menu-btn { width: 100%; border: none; border-radius: 8px; background: #262626; color: #f5f5f5; padding: 6px 8px; font-size: 12px; cursor: pointer; margin-top: 4px; }
+    /* ===== 팀 구성 섹션 ===== */
+    #team-section {
+      background: #141414;
+      padding: 8px;
+      margin-bottom: 8px;
+    }
+    #team-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    #team-header-row h3 {
+      font-size: 14px;
+      margin: 0;
+    }
+    #taego-link {
+      text-decoration: none;
+      font-size: 11px;
+      border-radius: 999px;
+      padding: 3px 8px;
+      background: #3949ab;
+      color: #fff;
+    }
+    #taego-link:hover {
+      opacity: 0.9;
+    }
 
-    @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+    .team-card {
+      background: #1c1c1c;
+      border: 1px solid #333;
+      border-radius: 10px;
+      padding: 6px;
+      margin-bottom: 6px;
+    }
+    .team-name-input {
+      width: 100%;
+      background: #181818;
+      color: #fff;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 3px 5px;
+      margin-bottom: 4px;
+      font-size: 12px;
+    }
+    .team-members {
+      max-height: 70px;
+      overflow-y: auto;
+      font-size: 12px;
+      margin-bottom: 4px;
+      list-style: none;
+      padding: 0;
+    }
+    .team-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    /* ===== 색상 + 모양 선택 팝업 ===== */
+    #color-picker {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.45);
+      z-index: 100;
+    }
+    #color-picker-panel {
+      background: #222;
+      border: 1px solid #555;
+      border-radius: 12px;
+      padding: 12px;
+      text-align: center;
+      min-width: 220px;
+    }
+    #color-picker-colors {
+      margin-bottom: 6px;
+    }
+    .cp-color {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid #444;
+      display: inline-block;
+      margin: 4px;
+      cursor: pointer;
+    }
+    .cp-color.active {
+      border-color: #fff;
+      box-shadow: 0 0 5px rgba(255,255,255,0.9);
+    }
+    #shape-picker {
+      margin-top: 6px;
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+    }
+    .shape-option {
+      background: #2a2a2a;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .shape-option.active {
+      background: #3f8cff;
+    }
+
+    /* ===== 거점 라벨 ===== */
+    .node-label {
+      font-size: 9px;
+      fill: #fff;
+      text-anchor: middle;
+      dominant-baseline: hanging;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
     .link-blink { animation: blink 1s infinite; }
+
+    /* ===== 거점 클릭 메뉴 ===== */
+    #node-menu {
+      position: fixed;
+      z-index: 120;
+      background: rgba(20,20,20,0.95);
+      border-radius: 12px;
+      border: 1px solid #555;
+      padding: 8px;
+      min-width: 160px;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.8);
+      backdrop-filter: blur(6px);
+      font-size: 12px;
+    }
+    #node-menu-title {
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: #fff;
+    }
+    .node-menu-btn {
+      width: 100%;
+      border: none;
+      border-radius: 8px;
+      background: #262626;
+      color: #f5f5f5;
+      padding: 6px 8px;
+      font-size: 12px;
+      cursor: pointer;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .node-menu-btn + .node-menu-btn {
+      margin-top: 4px;
+    }
+    .node-menu-btn:hover {
+      background: #333;
+    }
+    .node-menu-icon {
+      width: 16px;
+      text-align: center;
+      opacity: 0.9;
+    }
+
+    /* ===== 반응형 ===== */
+    @media (max-width: 600px) {
+      #map-wrapper { height: 45vh; }
+      #chat-messages { max-height: 20vh; }
+    }
   </style>
 </head>
 <body>
 
-<!-- 지도 -->
+<!-- ===== 1. 지도 ===== -->
 <div id="map-wrapper">
   <div id="map-container">
     <img id="map-image" src="fullmap.png" alt="지도">
     <svg id="map-overlay"></svg>
   </div>
+
+  <!-- 확대/축소 버튼 -->
   <div id="zoom-bar">
     <button id="zoom-out" class="zoom-btn">-</button>
     <span id="zoom-label">100%</span>
@@ -60,136 +348,610 @@
   </div>
 </div>
 
-<!-- 채팅 -->
+<!-- ===== 2. 채팅 + 접속자 ===== -->
 <div id="chat-section">
   <div id="chat-header">
-    <span>채팅</span>
+    <div>
+      <span id="nickname-display">닉네임</span>
+      <span id="presence-info">접속자 0명</span>
+    </div>
+    <button id="change-nick" class="small-btn">닉네임 변경</button>
   </div>
+
   <div id="chat-messages"></div>
+
   <form id="chat-form">
     <input id="chat-input" placeholder="메시지 입력..." autocomplete="off">
     <button id="chat-send-btn" type="submit">전송</button>
   </form>
 </div>
 
-<!-- 팀 구성 -->
+<!-- ===== 3. 팀 구성 ===== -->
 <div id="team-section">
-  <h3>팀 구성 <a id="taego-link" href="https://script.google.com/macros/s/AKfycbzphmhTURMTavq1VI3U4nNv-znUn4wQRnGPYHm_ijoxXVlJBupMThpy8soW0LpWcHZd-g/exec?view=list" target="_blank">태고전력표</a></h3>
+  <div id="team-header-row">
+    <h3>팀 구성</h3>
+    <a id="taego-link" href="https://script.google.com/macros/s/AKfycbzphmhTURMTavq1VI3U4nNv-znUn4wQRnGPYHm_ijoxXVlJBupMThpy8soW0LpWcHZd-g/exec?view=list" target="_blank">
+      태고전력표
+    </a>
+  </div>
+  <div id="teams"></div>
 </div>
 
-<!-- Firebase -->
+<!-- ===== 색상 + 모양 선택 팝업 ===== -->
+<div id="color-picker">
+  <div id="color-picker-panel">
+    <div style="margin-bottom:6px;">색을 고르고 모양을 선택한 후 거점 이름을 입력하세요</div>
+    <div id="color-picker-colors"></div>
+    <div id="shape-picker">
+      <button class="shape-option active" data-shape="circle">⚪ 동그라미</button>
+      <button class="shape-option" data-shape="sun">☀ 해</button>
+      <button class="shape-option" data-shape="moon">🌙 달</button>
+    </div>
+    <button id="color-picker-cancel" class="small-btn" style="margin-top:8px;">취소</button>
+  </div>
+</div>
+
+<!-- Firebase & Script -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyCLoTe7mwaCbZwdfWboOwai2-CyKX-Pjx8",
-  authDomain: "fir-console-90c30.firebaseapp.com",
-  databaseURL: "https://fir-console-90c30-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "fir-console-90c30",
-  storageBucket: "fir-console-90c30.firebasestorage.app",
-  messagingSenderId: "476568239405",
-  appId: "1:476568239405:web:6b779644d4e0c1b39827a4"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-const nodesRef = db.ref("mapNodes");
-const linksRef = db.ref("mapLinks");
-const chatRef = db.ref("chat");
+  // Firebase 설정 (그대로)
+  const firebaseConfig = {
+    apiKey: "AIzaSyCLoTe7mwaCbZwdfWboOwai2-CyKX-Pjx8",
+    authDomain: "fir-console-90c30.firebaseapp.com",
+    databaseURL: "https://fir-console-90c30-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "fir-console-90c30",
+    storageBucket: "fir-console-90c30.firebasestorage.app",
+    messagingSenderId: "476568239405",
+    appId: "1:476568239405:web:6b779644d4e0c1b39827a4",
+    measurementId: "G-KE0TQV1XRJ"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
 
-let zoomLevel = 1;
-const zoomLabel = document.getElementById("zoom-label");
-document.getElementById("zoom-in").onclick = ()=>{ zoomLevel=Math.min(5.0,zoomLevel+0.1); updateZoom(); };
-document.getElementById("zoom-out").onclick= ()=>{ zoomLevel=Math.max(0.5,zoomLevel-0.1); updateZoom(); };
-function updateZoom(){ zoomLabel.textContent=Math.round(zoomLevel*100)+"%"; document.getElementById("map-image").style.width=(zoomLevel*100)+"%"; drawAll(); }
+  const nodesRef    = db.ref("mapNodes");
+  const linksRef    = db.ref("mapLinks");
+  const chatRef     = db.ref("chatMessages");
+  const presenceRef = db.ref("presence");
+  const teamsRef    = db.ref("teams");
 
-let nodes={},links={};
-nodesRef.on("value",s=>{nodes=s.val()||{};drawAll();});
-linksRef.on("value",s=>{links=s.val()||{};drawAll();});
+  // ===== 닉네임 / 접속자 =====
+  let nickname = localStorage.getItem("nickname") || ("손님" + Math.floor(Math.random()*9999));
+  const nicknameDisplay = document.getElementById("nickname-display");
+  const presenceInfo    = document.getElementById("presence-info");
+  const changeNickBtn   = document.getElementById("change-nick");
+  nicknameDisplay.textContent = nickname;
 
-const overlay=document.getElementById("map-overlay"),mapImage=document.getElementById("map-image");
-function getPos(e){const r=mapImage.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height};}
-function toScreen(n){const r=mapImage.getBoundingClientRect();return{x:n.x*r.width,y:n.y*r.height};}
-
-let arrowStart=null;
-function drawAll(){
-  const r=mapImage.getBoundingClientRect(); overlay.innerHTML=""; overlay.setAttribute("width",r.width); overlay.setAttribute("height",r.height);
-  Object.entries(links).forEach(([id,l])=>{
-    const a=nodes[l.from],b=nodes[l.to]; if(!a||!b)return;
-    const p1=toScreen(a),p2=toScreen(b);
-    const line=document.createElementNS("http://www.w3.org/2000/svg","line");
-    line.setAttribute("x1",p1.x);line.setAttribute("y1",p1.y);
-    line.setAttribute("x2",p2.x);line.setAttribute("y2",p2.y);
-    line.setAttribute("stroke",l.color||a.color||"#fff");
-    line.setAttribute("stroke-width","2");
-    line.classList.add("link-blink");
-    line.onclick=ev=>{ev.stopPropagation();if(confirm("화살표를 삭제할까요?"))linksRef.child(id).remove();};
-    overlay.appendChild(line);
+  changeNickBtn.addEventListener("click", () => {
+    const nn = (prompt("새 닉네임:", nickname) || "").trim();
+    if (!nn) return;
+    nickname = nn;
+    localStorage.setItem("nickname", nickname);
+    nicknameDisplay.textContent = nickname;
+    if (myPresenceRef) myPresenceRef.update({ nick: nickname });
   });
-  Object.entries(nodes).forEach(([id,n])=>{
-    const p=toScreen(n);
-    const g=document.createElementNS("http://www.w3.org/2000/svg","g");
-    const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
-    c.setAttribute("cx",p.x);c.setAttribute("cy",p.y);c.setAttribute("r",5);c.setAttribute("fill",n.color||"#fff");
-    g.appendChild(c);
-    const t=document.createElementNS("http://www.w3.org/2000/svg","text");
-    t.setAttribute("x",p.x);t.setAttribute("y",p.y+10);t.setAttribute("fill","#fff");t.setAttribute("font-size","9");t.textContent=n.name||"";
-    g.appendChild(t); overlay.appendChild(g);
-    g.onclick=ev=>{
-      ev.stopPropagation();
-      if(arrowStart && arrowStart!==id){
-        const color=prompt("화살표 색 (1=빨강,2=파랑,3=형광초록)","1");
-        const col=color==="2"?"#2196f3":color==="3"?"#00ff7f":"#ff5252";
-        linksRef.push({from:arrowStart,to:id,color:col});
-        arrowStart=null; alert("화살표 생성됨");
-        return;
+
+  let myPresenceRef = null;
+  const connectedRef = db.ref(".info/connected");
+  connectedRef.on("value", snap => {
+    if (snap.val() === true) {
+      myPresenceRef = presenceRef.push();
+      myPresenceRef.onDisconnect().remove();
+      myPresenceRef.set({
+        nick: nickname,
+        ts: firebase.database.ServerValue.TIMESTAMP
+      });
+    }
+  });
+
+  presenceRef.on("value", snap => {
+    const val = snap.val() || {};
+    const count = Object.keys(val).length;
+    presenceInfo.textContent = "현재 접속자 " + count + "명";
+  });
+
+  // ===== 채팅 =====
+  const chatMessagesEl = document.getElementById("chat-messages");
+  const chatForm       = document.getElementById("chat-form");
+  const chatInput      = document.getElementById("chat-input");
+
+  function formatTime(ts) {
+    const d = new Date(ts);
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    return hh + ":" + mm;
+  }
+
+  function addChatMessage(data) {
+    const div = document.createElement("div");
+    div.className = "chat-msg";
+    div.innerHTML =
+      "<span class='chat-nick'>" + (data.nick || "손님") + "</span>" +
+      (data.text || "") +
+      "<span class='chat-time'>" + formatTime(data.time || Date.now()) + "</span>";
+    chatMessagesEl.appendChild(div);
+    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+  }
+
+  chatRef.on("child_added", snap => {
+    const v = snap.val();
+    if (!v) return;
+    addChatMessage(v);
+  });
+
+  chatForm.addEventListener("submit", e => {
+    e.preventDefault();
+    const text = chatInput.value.trim();
+    if (!text) return;
+    chatRef.push({
+      nick: nickname,
+      text,
+      time: Date.now()
+    });
+    chatInput.value = "";
+  });
+
+  // ===== 팀 구성 =====
+  const teamsDiv = document.getElementById("teams");
+
+  // 처음에 팀 없으면 기본 1~6 생성
+  teamsRef.once("value", snap => {
+    if (!snap.exists()) {
+      for (let i = 1; i <= 6; i++) {
+        teamsRef.child("team" + i).set({
+          name: "팀 " + i,
+          members: {}
+        });
       }
-      const m=document.createElement("div");
-      m.id="node-menu";m.style.left=ev.clientX+"px";m.style.top=ev.clientY+"px";
-      m.innerHTML=`
-        <button class="node-menu-btn" onclick="editNode('${id}')">색/이름 변경</button>
-        <button class="node-menu-btn" onclick="deleteNode('${id}')">거점 삭제</button>
-        <button class="node-menu-btn" onclick="startArrow('${id}')">화살표 연결</button>`;
-      document.body.appendChild(m);
-      document.addEventListener("click",()=>m.remove(),{once:true});
-    };
+    }
   });
-}
 
-window.editNode=id=>{
-  const n=nodes[id];const name=prompt("이름:",n.name||"");
-  const color=prompt("색 (hex):",n.color||"#fff");
-  nodesRef.child(id).update({name,color});
-};
-window.deleteNode=id=>{
-  if(!confirm("삭제?"))return;
-  Object.entries(links).forEach(([lid,l])=>{if(l.from===id||l.to===id)linksRef.child(lid).remove();});
-  nodesRef.child(id).remove();
-};
-window.startArrow=id=>{arrowStart=id;alert("화살표 시작점 선택됨");};
+  teamsRef.on("value", snap => {
+    const teams = snap.val() || {};
+    teamsDiv.innerHTML = "";
+    Object.entries(teams).forEach(([tid, team]) => {
+      const card = document.createElement("div");
+      card.className = "team-card";
 
-mapImage.onclick=e=>{
-  const pos=getPos(e);
-  const color=prompt("색 (hex):","#ffffff");
-  const name=prompt("거점 이름:","거점");
-  nodesRef.push({x:pos.x,y:pos.y,color,name});
-};
+      const nameInput = document.createElement("input");
+      nameInput.className = "team-name-input";
+      nameInput.value = team.name || tid;
+      nameInput.addEventListener("change", () => {
+        teamsRef.child(tid).update({ name: nameInput.value.trim() || tid });
+      });
+      card.appendChild(nameInput);
 
-// 채팅
-const chatBox=document.getElementById("chat-messages");
-chatRef.on("child_added",s=>{
-  const d=s.val();
-  const div=document.createElement("div");
-  div.className="chat-msg";
-  div.innerHTML=`<span class='chat-nick'>${d.nick||"익명"}:</span>${d.text}`;
-  chatBox.appendChild(div); chatBox.scrollTop=chatBox.scrollHeight;
-});
-document.getElementById("chat-form").onsubmit=e=>{
-  e.preventDefault();
-  const text=document.getElementById("chat-input").value.trim();
-  if(!text)return;
-  chatRef.push({nick:"익명",text});
-  document.getElementById("chat-input").value="";
-};
+      const ul = document.createElement("ul");
+      ul.className = "team-members";
+      Object.values(team.members || {}).forEach(memberName => {
+        const li = document.createElement("li");
+        li.textContent = memberName;
+        ul.appendChild(li);
+      });
+      card.appendChild(ul);
+
+      const btnRow = document.createElement("div");
+      btnRow.className = "team-buttons";
+
+      const addMeBtn = document.createElement("button");
+      addMeBtn.className = "small-btn";
+      addMeBtn.textContent = "내 닉네임 추가";
+      addMeBtn.addEventListener("click", () => {
+        teamsRef.child(tid).child("members").push(nickname);
+      });
+
+      const addBtn = document.createElement("button");
+      addBtn.className = "small-btn";
+      addBtn.textContent = "이름 추가";
+      addBtn.addEventListener("click", () => {
+        const name = (prompt("추가할 이름:") || "").trim();
+        if (!name) return;
+        teamsRef.child(tid).child("members").push(name);
+      });
+
+      const clearBtn = document.createElement("button");
+      clearBtn.className = "small-btn";
+      clearBtn.textContent = "전체 삭제";
+      clearBtn.addEventListener("click", () => {
+        if (!confirm("이 팀의 모든 팀원을 삭제할까요?")) return;
+        teamsRef.child(tid).child("members").remove();
+      });
+
+      btnRow.appendChild(addMeBtn);
+      btnRow.appendChild(addBtn);
+      btnRow.appendChild(clearBtn);
+
+      card.appendChild(btnRow);
+      teamsDiv.appendChild(card);
+    });
+  });
+
+  // ===== 지도 / 거점 / 화살표 =====
+  const mapImage     = document.getElementById("map-image");
+  const overlay      = document.getElementById("map-overlay");
+  const mapContainer = document.getElementById("map-container");
+
+  let nodes = {};
+  let links = {};
+
+  let zoomLevel = 1;
+  const zoomLabel = document.getElementById("zoom-label");
+  const zoomInBtn  = document.getElementById("zoom-in");
+  const zoomOutBtn = document.getElementById("zoom-out");
+
+  function updateZoomLabel() {
+    zoomLabel.textContent = Math.round(zoomLevel * 100) + "%";
+  }
+
+  function applyZoom() {
+    mapImage.style.width = (zoomLevel * 100) + "%";
+    drawAll();
+  }
+
+  zoomInBtn.addEventListener("click", () => {
+    zoomLevel = Math.min(5.0, zoomLevel + 0.1);
+    updateZoomLabel();
+    applyZoom();
+  });
+  zoomOutBtn.addEventListener("click", () => {
+    zoomLevel = Math.max(0.5, zoomLevel - 0.1);
+    updateZoomLabel();
+    applyZoom();
+  });
+  updateZoomLabel();
+
+  window.addEventListener("resize", () => {
+    drawAll();
+  });
+
+  // 색상/모양 선택 팝업
+  const colorPicker       = document.getElementById("color-picker");
+  const cpColorsContainer = document.getElementById("color-picker-colors");
+  const shapeButtons      = document.querySelectorAll(".shape-option");
+  const colorPickerCancel = document.getElementById("color-picker-cancel");
+
+  const colorList = [
+    "#e53935","#fb8c00","#fdd835","#43a047","#1e88e5",
+    "#8e24aa","#00acc1","#d81b60","#3949ab","#5e35b1",
+    "#f06292","#26c6da","#81c784","#cddc39","#ffb300",
+    "#6d4c41","#546e7a","#9e9d24","#ff7043","#ffffff"
+  ];
+
+  let popupShape = "circle";
+  let colorPickerCallback = null;
+
+  function buildColorChoices() {
+    cpColorsContainer.innerHTML = "";
+    colorList.forEach(c => {
+      const div = document.createElement("div");
+      div.className = "cp-color";
+      div.style.background = c;
+      div.dataset.color = c;
+      cpColorsContainer.appendChild(div);
+    });
+  }
+  buildColorChoices();
+
+  shapeButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      shapeButtons.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      popupShape = btn.dataset.shape;
+    });
+  });
+
+  function openColorShapePicker(callback) {
+    colorPickerCallback = callback;
+    colorPicker.style.display = "flex";
+  }
+
+  cpColorsContainer.addEventListener("click", e => {
+    const target = e.target;
+    if (!target.classList.contains("cp-color")) return;
+    const color = target.dataset.color;
+    if (!colorPickerCallback) return;
+    const cb = colorPickerCallback;
+    colorPickerCallback = null;
+    colorPicker.style.display = "none";
+    cb(color, popupShape);
+  });
+
+  colorPickerCancel.addEventListener("click", () => {
+    colorPicker.style.display = "none";
+    colorPickerCallback = null;
+  });
+
+  // 좌표 변환
+  function getRelativePos(clientX, clientY) {
+    const rect = mapImage.getBoundingClientRect();
+    const x = (clientX - rect.left) / rect.width;
+    const y = (clientY - rect.top)  / rect.height;
+    return { x, y };
+  }
+
+  function toScreenPos(node) {
+    const rect = mapImage.getBoundingClientRect();
+    return {
+      x: node.x * rect.width,
+      y: node.y * rect.height
+    };
+  }
+
+  // DB 동기화
+  nodesRef.on("value", snap => {
+    nodes = snap.val() || {};
+    drawAll();
+  });
+  linksRef.on("value", snap => {
+    links = snap.val() || {};
+    drawAll();
+  });
+
+  // 화살표 출발 노드
+  let arrowStartNodeId = null;
+
+  // 지도 빈 곳 클릭 → 새 거점
+  mapContainer.addEventListener("click", e => {
+    if (arrowStartNodeId) {
+      arrowStartNodeId = null;
+      alert("화살표 시작이 취소되었습니다.");
+      return;
+    }
+
+    const pos = getRelativePos(e.clientX, e.clientY);
+    openColorShapePicker((color, shape) => {
+      const name = (prompt("새 거점 이름을 입력하세요:") || "").trim();
+      if (!name) return;
+      nodesRef.push({
+        x: pos.x,
+        y: pos.y,
+        color,
+        shape,
+        name
+      });
+    });
+  });
+
+  // 기존 메뉴가 있으면 제거
+  function closeNodeMenu() {
+    const m = document.getElementById("node-menu");
+    if (m) m.remove();
+  }
+
+  // 전체 그리기 (화살표 작게, 라벨 BBox 맞춤)
+  function drawAll() {
+    const rect = mapImage.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+
+    overlay.setAttribute("width", rect.width);
+    overlay.setAttribute("height", rect.height);
+    overlay.innerHTML = "";
+
+    // 🔽 화살표 머리 작게 설정
+    const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+    const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+    marker.setAttribute("id", "arrow-head");
+    marker.setAttribute("markerWidth", "5");
+    marker.setAttribute("markerHeight", "5");
+    marker.setAttribute("refX", "4");
+    marker.setAttribute("refY", "2.5");
+    marker.setAttribute("orient", "auto");
+    marker.setAttribute("markerUnits", "strokeWidth");
+    const mp = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    mp.setAttribute("d", "M0,0 L4,2.5 L0,5 z");
+    mp.setAttribute("fill", "currentColor");
+    marker.appendChild(mp);
+    defs.appendChild(marker);
+    overlay.appendChild(defs);
+
+    // 화살표 (선 굵기도 줄임)
+    Object.entries(links || {}).forEach(([id, link]) => {
+      const fromNode = nodes[link.from];
+      const toNode   = nodes[link.to];
+      if (!fromNode || !toNode) return;
+
+      const p1 = toScreenPos(fromNode);
+      const p2 = toScreenPos(toNode);
+
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y}`);
+
+      const color = fromNode.color || "#ffffff";
+      path.setAttribute("stroke", color);
+      path.style.color = color;
+      path.setAttribute("stroke-width", "2");
+      path.setAttribute("fill", "none");
+      path.setAttribute("class", "link-blink");
+      path.setAttribute("marker-end", "url(#arrow-head)");
+      path.style.pointerEvents = "auto";
+
+      path.addEventListener("click", ev => {
+        ev.stopPropagation();
+        if (!confirm("이 화살표를 삭제할까요?")) return;
+        linksRef.child(id).remove();
+        closeNodeMenu();
+      });
+
+      overlay.appendChild(path);
+    });
+
+    // 노드
+    Object.entries(nodes || {}).forEach(([id, node]) => {
+      const p = toScreenPos(node);
+      const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      g.style.pointerEvents = "auto";
+
+      const shape = node.shape || "circle";
+      let symbolEl;
+
+      if (shape === "circle") {
+        const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        c.setAttribute("cx", p.x);
+        c.setAttribute("cy", p.y);
+        c.setAttribute("r", 5);
+        c.setAttribute("fill", node.color || "#ffffff");
+        symbolEl = c;
+      } else {
+        const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        t.setAttribute("x", p.x - 6);
+        t.setAttribute("y", p.y + 4);
+        t.setAttribute("font-size", "12");
+        t.setAttribute("fill", node.color || "#ffffff");
+        t.textContent = (shape === "sun") ? "☀" : "🌙";
+        symbolEl = t;
+      }
+      g.appendChild(symbolEl);
+
+      const name = node.name || "";
+      if (name) {
+        const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        label.setAttribute("x", p.x);
+        label.setAttribute("y", p.y + 10);
+        label.setAttribute("class", "node-label");
+        label.textContent = name;
+        g.appendChild(label);
+        overlay.appendChild(g);
+
+        const bbox = label.getBBox();
+        const padX = 3;
+        const padY = 1;
+        const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        bg.setAttribute("x", bbox.x - padX);
+        bg.setAttribute("y", bbox.y - padY);
+        bg.setAttribute("width", bbox.width + padX * 2);
+        bg.setAttribute("height", bbox.height + padY * 2);
+        bg.setAttribute("fill", "rgba(0,0,0,0.75)");
+        bg.setAttribute("rx", "3");
+        bg.setAttribute("ry", "3");
+
+        g.removeChild(label);
+        g.insertBefore(bg, g.firstChild.nextSibling);
+        g.appendChild(label);
+      } else {
+        overlay.appendChild(g);
+      }
+
+      // 노드 클릭 이벤트
+      g.addEventListener("click", ev => {
+        ev.stopPropagation();
+
+        // 화살표 출발 노드가 이미 선택되어 있고, 다른 노드를 클릭한 경우 → 화살표 생성
+        if (arrowStartNodeId && arrowStartNodeId !== id) {
+          linksRef.push({
+            from: arrowStartNodeId,
+            to: id
+          });
+          arrowStartNodeId = null;
+          alert("화살표가 생성되었습니다.");
+          closeNodeMenu();
+          return;
+        }
+
+        // 같은 노드 다시 클릭 → 화살표 모드 취소
+        if (arrowStartNodeId && arrowStartNodeId === id) {
+          arrowStartNodeId = null;
+          alert("화살표 시작이 취소되었습니다.");
+          closeNodeMenu();
+          return;
+        }
+
+        // 거점 메뉴 띄우기
+        closeNodeMenu();
+        const menu = document.createElement("div");
+        menu.id = "node-menu";
+
+        // 클릭 위치 기준으로 메뉴 위치 잡기
+        const clickX = ev.clientX;
+        const clickY = ev.clientY;
+        const menuWidth = 180;
+        const menuHeight = 110;
+
+        let left = clickX + 8;
+        let top  = clickY + 8;
+        if (left + menuWidth > window.innerWidth - 8) {
+          left = window.innerWidth - menuWidth - 8;
+        }
+        if (top + menuHeight > window.innerHeight - 8) {
+          top = window.innerHeight - menuHeight - 8;
+        }
+        menu.style.left = left + "px";
+        menu.style.top  = top  + "px";
+
+        const title = document.createElement("div");
+        title.id = "node-menu-title";
+        title.textContent = node.name ? `거점: ${node.name}` : "거점 메뉴";
+        menu.appendChild(title);
+
+        // 버튼 1: 색/모양 변경
+        const btnColor = document.createElement("button");
+        btnColor.className = "node-menu-btn";
+        btnColor.innerHTML =
+          `<span class="node-menu-icon">🎨</span><span>색 / 모양 변경</span>`;
+        btnColor.addEventListener("click", () => {
+          closeNodeMenu();
+          openColorShapePicker((color, shapeSel) => {
+            const newName = (prompt("거점 이름 (변경 안하면 그대로):", node.name || "") || "").trim();
+            const updates = { color };
+            updates.shape = shapeSel || node.shape || "circle";
+            if (newName) updates.name = newName;
+            nodesRef.child(id).update(updates);
+          });
+        });
+        menu.appendChild(btnColor);
+
+        // 버튼 2: 거점 삭제
+        const btnDelete = document.createElement("button");
+        btnDelete.className = "node-menu-btn";
+        btnDelete.innerHTML =
+          `<span class="node-menu-icon">🗑</span><span>거점 삭제</span>`;
+        btnDelete.addEventListener("click", () => {
+          closeNodeMenu();
+          if (!confirm("이 거점을 삭제할까요? (연결된 화살표도 삭제됨)")) return;
+          Object.entries(links || {}).forEach(([lid, l]) => {
+            if (l.from === id || l.to === id) {
+              linksRef.child(lid).remove();
+            }
+          });
+          nodesRef.child(id).remove();
+        });
+        menu.appendChild(btnDelete);
+
+        // 버튼 3: 화살표 연결 시작
+        const btnArrow = document.createElement("button");
+        btnArrow.className = "node-menu-btn";
+        btnArrow.innerHTML =
+          `<span class="node-menu-icon">➡</span><span>화살표 연결 시작</span>`;
+        btnArrow.addEventListener("click", () => {
+          closeNodeMenu();
+          arrowStartNodeId = id;
+          alert("이 거점에서 출발하는 화살표 모드입니다. 도착 거점을 클릭하세요.");
+        });
+        menu.appendChild(btnArrow);
+
+        document.body.appendChild(menu);
+
+        // 바깥 클릭 시 메뉴 닫기
+        const closeHandler = evt => {
+          if (!menu.contains(evt.target)) {
+            closeNodeMenu();
+            document.removeEventListener("click", closeHandler);
+          }
+        };
+        setTimeout(() => {
+          document.addEventListener("click", closeHandler);
+        }, 0);
+      });
+    });
+  }
+
+  // 이미지 로딩 후 최초 드로우
+  if (mapImage.complete) {
+    applyZoom();
+  } else {
+    mapImage.onload = () => {
+      applyZoom();
+    };
+  }
 </script>
 </body>
 </html>
