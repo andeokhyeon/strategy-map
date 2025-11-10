@@ -115,7 +115,7 @@
       background: #3a3a3a;
     }
     #chat-messages {
-      max-height: 25vh;
+      max-height: 35vh; /* 길이 늘림 */
       overflow-y: auto;
       background: #181818;
       border-radius: 8px;
@@ -265,6 +265,40 @@
       background: #3f8cff;
     }
 
+    /* ===== 화살표 색 선택 팝업 ===== */
+    #arrow-color-picker {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.45);
+      z-index: 110;
+    }
+    #arrow-color-panel {
+      background: #222;
+      border: 1px solid #555;
+      border-radius: 12px;
+      padding: 10px 12px;
+      min-width: 200px;
+      text-align: center;
+    }
+    #arrow-color-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .arrow-color-btn {
+      border: none;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      color: #fff;
+      font-weight: 500;
+    }
+
     /* ===== 거점 라벨 ===== */
     .node-label {
       font-size: 9px;
@@ -287,7 +321,7 @@
       border-radius: 12px;
       border: 1px solid #555;
       padding: 8px;
-      min-width: 160px;
+      min-width: 170px;
       box-shadow: 0 10px 24px rgba(0,0,0,0.8);
       backdrop-filter: blur(6px);
       font-size: 12px;
@@ -327,7 +361,7 @@
     /* ===== 반응형 ===== */
     @media (max-width: 600px) {
       #map-wrapper { height: 45vh; }
-      #chat-messages { max-height: 20vh; }
+      #chat-messages { max-height: 28vh; }
     }
   </style>
 </head>
@@ -388,6 +422,19 @@
       <button class="shape-option" data-shape="moon">🌙 달</button>
     </div>
     <button id="color-picker-cancel" class="small-btn" style="margin-top:8px;">취소</button>
+  </div>
+</div>
+
+<!-- ===== 화살표 색 선택 팝업 ===== -->
+<div id="arrow-color-picker">
+  <div id="arrow-color-panel">
+    <div>화살표 색을 선택하세요</div>
+    <div id="arrow-color-buttons">
+      <button class="arrow-color-btn" data-color="#e53935" style="background:#e53935;">빨강</button>
+      <button class="arrow-color-btn" data-color="#1e88e5" style="background:#1e88e5;">파랑</button>
+      <button class="arrow-color-btn" data-color="#00ff66" style="background:#00ff66;color:#000;">형광초록</button>
+    </div>
+    <button id="arrow-color-cancel" class="small-btn" style="margin-top:8px;">취소</button>
   </div>
 </div>
 
@@ -588,6 +635,7 @@
     drawAll();
   }
 
+  // 최대 500% 확대
   zoomInBtn.addEventListener("click", () => {
     zoomLevel = Math.min(5.0, zoomLevel + 0.1);
     updateZoomLabel();
@@ -661,6 +709,33 @@
     colorPickerCallback = null;
   });
 
+  // 🔹 화살표 색 선택 팝업 (클릭)
+  const arrowColorPicker   = document.getElementById("arrow-color-picker");
+  const arrowColorButtons  = document.querySelectorAll(".arrow-color-btn");
+  const arrowColorCancel   = document.getElementById("arrow-color-cancel");
+  let arrowColorCallback   = null;
+
+  function openArrowColorPicker(callback) {
+    arrowColorCallback = callback;
+    arrowColorPicker.style.display = "flex";
+  }
+
+  arrowColorButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (!arrowColorCallback) return;
+      const color = btn.dataset.color;
+      const cb = arrowColorCallback;
+      arrowColorCallback = null;
+      arrowColorPicker.style.display = "none";
+      cb(color);
+    });
+  });
+
+  arrowColorCancel.addEventListener("click", () => {
+    arrowColorPicker.style.display = "none";
+    arrowColorCallback = null;
+  });
+
   // 좌표 변환
   function getRelativePos(clientX, clientY) {
     const rect = mapImage.getBoundingClientRect();
@@ -718,7 +793,7 @@
     if (m) m.remove();
   }
 
-  // 전체 그리기 (화살표 작게, 라벨 BBox 맞춤)
+  // 전체 그리기 (화살표 작게 + 좀 더 짧게 + 머리색도 동일)
   function drawAll() {
     const rect = mapImage.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return;
@@ -727,24 +802,12 @@
     overlay.setAttribute("height", rect.height);
     overlay.innerHTML = "";
 
-    // 🔽 화살표 머리 작게 설정
+    // defs 및 색별 marker 캐시
     const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-    const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
-    marker.setAttribute("id", "arrow-head");
-    marker.setAttribute("markerWidth", "5");
-    marker.setAttribute("markerHeight", "5");
-    marker.setAttribute("refX", "4");
-    marker.setAttribute("refY", "2.5");
-    marker.setAttribute("orient", "auto");
-    marker.setAttribute("markerUnits", "strokeWidth");
-    const mp = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    mp.setAttribute("d", "M0,0 L4,2.5 L0,5 z");
-    mp.setAttribute("fill", "currentColor");
-    marker.appendChild(mp);
-    defs.appendChild(marker);
     overlay.appendChild(defs);
+    const markerMap = {}; // color -> markerId
 
-    // 화살표 (선 굵기도 줄임)
+    // 화살표
     Object.entries(links || {}).forEach(([id, link]) => {
       const fromNode = nodes[link.from];
       const toNode   = nodes[link.to];
@@ -753,16 +816,52 @@
       const p1 = toScreenPos(fromNode);
       const p2 = toScreenPos(toNode);
 
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y}`);
+      let x1 = p1.x;
+      let y1 = p1.y;
+      let x2 = p2.x;
+      let y2 = p2.y;
 
-      const color = fromNode.color || "#ffffff";
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const len = Math.sqrt(dx*dx + dy*dy) || 1;
+
+      // 🔹 화살표 길이 살짝 줄이기 (양쪽에서 조금씩 안으로)
+      const offsetStart = 4;  // 시작점에서 조금 앞으로
+      const offsetEnd   = 8;  // 끝점에서 조금 뒤로
+      x1 += (dx / len) * offsetStart;
+      y1 += (dy / len) * offsetStart;
+      x2 -= (dx / len) * offsetEnd;
+      y2 -= (dy / len) * offsetEnd;
+
+      const color = link.color || fromNode.color || "#ffffff";
+
+      // 🔹 색마다 marker 하나씩 생성해서 머리색도 동일하게
+      let markerId = markerMap[color];
+      if (!markerId) {
+        markerId = "arrow-head-" + color.replace("#","");
+        const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+        marker.setAttribute("id", markerId);
+        marker.setAttribute("markerWidth", "5");
+        marker.setAttribute("markerHeight", "5");
+        marker.setAttribute("refX", "4");
+        marker.setAttribute("refY", "2.5");
+        marker.setAttribute("orient", "auto");
+        marker.setAttribute("markerUnits", "strokeWidth");
+        const mp = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        mp.setAttribute("d", "M0,0 L4,2.5 L0,5 z");
+        mp.setAttribute("fill", color);
+        marker.appendChild(mp);
+        defs.appendChild(marker);
+        markerMap[color] = markerId;
+      }
+
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", `M ${x1} ${y1} L ${x2} ${y2}`);
       path.setAttribute("stroke", color);
-      path.style.color = color;
       path.setAttribute("stroke-width", "2");
       path.setAttribute("fill", "none");
       path.setAttribute("class", "link-blink");
-      path.setAttribute("marker-end", "url(#arrow-head)");
+      path.setAttribute("marker-end", "url(#" + markerId + ")");
       path.style.pointerEvents = "auto";
 
       path.addEventListener("click", ev => {
@@ -837,13 +936,20 @@
 
         // 화살표 출발 노드가 이미 선택되어 있고, 다른 노드를 클릭한 경우 → 화살표 생성
         if (arrowStartNodeId && arrowStartNodeId !== id) {
-          linksRef.push({
-            from: arrowStartNodeId,
-            to: id
+          openArrowColorPicker(color => {
+            if (!color) {
+              arrowStartNodeId = null;
+              return;
+            }
+            linksRef.push({
+              from: arrowStartNodeId,
+              to: id,
+              color
+            });
+            arrowStartNodeId = null;
+            alert("화살표가 생성되었습니다.");
+            closeNodeMenu();
           });
-          arrowStartNodeId = null;
-          alert("화살표가 생성되었습니다.");
-          closeNodeMenu();
           return;
         }
 
@@ -860,11 +966,10 @@
         const menu = document.createElement("div");
         menu.id = "node-menu";
 
-        // 클릭 위치 기준으로 메뉴 위치 잡기
         const clickX = ev.clientX;
         const clickY = ev.clientY;
-        const menuWidth = 180;
-        const menuHeight = 110;
+        const menuWidth = 190;
+        const menuHeight = 140;
 
         let left = clickX + 8;
         let top  = clickY + 8;
@@ -899,7 +1004,23 @@
         });
         menu.appendChild(btnColor);
 
-        // 버튼 2: 거점 삭제
+        // 버튼 2: 여기서 출발 화살표 삭제
+        const btnDelOutgoing = document.createElement("button");
+        btnDelOutgoing.className = "node-menu-btn";
+        btnDelOutgoing.innerHTML =
+          `<span class="node-menu-icon">🚫</span><span>여기서 출발 화살표 삭제</span>`;
+        btnDelOutgoing.addEventListener("click", () => {
+          closeNodeMenu();
+          if (!confirm("이 거점에서 출발하는 모든 화살표를 삭제할까요?")) return;
+          Object.entries(links || {}).forEach(([lid, l]) => {
+            if (l.from === id) {
+              linksRef.child(lid).remove();
+            }
+          });
+        });
+        menu.appendChild(btnDelOutgoing);
+
+        // 버튼 3: 거점 삭제
         const btnDelete = document.createElement("button");
         btnDelete.className = "node-menu-btn";
         btnDelete.innerHTML =
@@ -916,7 +1037,7 @@
         });
         menu.appendChild(btnDelete);
 
-        // 버튼 3: 화살표 연결 시작
+        // 버튼 4: 화살표 연결 시작
         const btnArrow = document.createElement("button");
         btnArrow.className = "node-menu-btn";
         btnArrow.innerHTML =
