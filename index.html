@@ -15,11 +15,14 @@
       overflow-x: hidden;
     }
 
-    /* ===== 공통 섹션 ===== */
-    .section {
-      border-top: 1px solid #222;
+    /* ===== 공통 섹션 테두리 ===== */
+    #map-wrapper,
+    #chat-section,
+    #team-section {
+      border: 1px solid #333;
+      border-radius: 10px;
+      margin: 6px 6px 0;
       background: #111;
-      padding: 8px;
     }
 
     /* ===== 지도 섹션 ===== */
@@ -34,7 +37,7 @@
       position: relative;
       width: 100%;
       height: 100%;
-      overflow: auto;   /* 확대 후 드래그(스크롤) 가능하게 */
+      overflow: auto;  /* 확대 후 드래그 가능 */
     }
     #map-image {
       display: block;
@@ -154,7 +157,30 @@
     #team-section {
       background: #141414;
       padding: 8px;
+      margin-bottom: 8px;
     }
+    #team-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    #team-header-row h3 {
+      font-size: 14px;
+      margin: 0;
+    }
+    #taego-link {
+      text-decoration: none;
+      font-size: 11px;
+      border-radius: 999px;
+      padding: 3px 8px;
+      background: #3949ab;
+      color: #fff;
+    }
+    #taego-link:hover {
+      opacity: 0.9;
+    }
+
     .team-card {
       background: #1c1c1c;
       border: 1px solid #333;
@@ -241,7 +267,7 @@
 
     /* ===== 거점 라벨 ===== */
     .node-label {
-      font-size: 9px;   /* 더 작게 */
+      font-size: 9px;   /* 작게 */
       fill: #fff;
       text-anchor: middle;
       dominant-baseline: hanging;
@@ -297,7 +323,12 @@
 
 <!-- ===== 3. 팀 구성 ===== -->
 <div id="team-section">
-  <h3 style="font-size:14px;margin:0 0 6px;">팀 구성</h3>
+  <div id="team-header-row">
+    <h3>팀 구성</h3>
+    <a id="taego-link" href="https://script.google.com/macros/s/AKfycbzphmhTURMTavq1VI3U4nNv-znUn4wQRnGPYHm_ijoxXVlJBupMThpy8soW0LpWcHZd-g/exec?view=list" target="_blank">
+      태고전력표
+    </a>
+  </div>
   <div id="teams"></div>
 </div>
 
@@ -317,7 +348,7 @@
 
 <!-- ===== Firebase & 스크립트 ===== -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 <script>
   // Firebase 설정 (그대로)
   const firebaseConfig = {
@@ -616,7 +647,6 @@
 
   // 지도 빈 곳 클릭 → 새 거점
   mapContainer.addEventListener("click", e => {
-    // SVG 위 노드 클릭은 g에서 stopPropagation 해서 여기 안 옴
     if (arrowStartNodeId) {
       arrowStartNodeId = null;
       alert("화살표 시작이 취소되었습니다.");
@@ -637,7 +667,7 @@
     });
   });
 
-  // 전체 그리기 (라벨은 실제 BBox로 딱 맞게)
+  // 전체 그리기 (화살표 작게, 라벨 BBox 맞춤)
   function drawAll() {
     const rect = mapImage.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return;
@@ -646,24 +676,24 @@
     overlay.setAttribute("height", rect.height);
     overlay.innerHTML = "";
 
-    // 화살표 머리 정의
+    // 🔽 화살표 머리 작게 설정
     const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
     const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
     marker.setAttribute("id", "arrow-head");
-    marker.setAttribute("markerWidth", "7");
-    marker.setAttribute("markerHeight", "7");
-    marker.setAttribute("refX", "5");
-    marker.setAttribute("refY", "3.5");
+    marker.setAttribute("markerWidth", "5");
+    marker.setAttribute("markerHeight", "5");
+    marker.setAttribute("refX", "4");
+    marker.setAttribute("refY", "2.5");
     marker.setAttribute("orient", "auto");
     marker.setAttribute("markerUnits", "strokeWidth");
     const mp = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    mp.setAttribute("d", "M0,0 L5,3.5 L0,7 z");
+    mp.setAttribute("d", "M0,0 L4,2.5 L0,5 z");
     mp.setAttribute("fill", "currentColor");
     marker.appendChild(mp);
     defs.appendChild(marker);
     overlay.appendChild(defs);
 
-    // 화살표
+    // 화살표 (선 굵기도 줄임)
     Object.entries(links || {}).forEach(([id, link]) => {
       const fromNode = nodes[link.from];
       const toNode   = nodes[link.to];
@@ -678,7 +708,7 @@
       const color = fromNode.color || "#ffffff";
       path.setAttribute("stroke", color);
       path.style.color = color;
-      path.setAttribute("stroke-width", "3");
+      path.setAttribute("stroke-width", "2");   // 🔹 얇게
       path.setAttribute("fill", "none");
       path.setAttribute("class", "link-blink");
       path.setAttribute("marker-end", "url(#arrow-head)");
@@ -706,14 +736,14 @@
         const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
         c.setAttribute("cx", p.x);
         c.setAttribute("cy", p.y);
-        c.setAttribute("r", 5);               // 🔹 더 작게
+        c.setAttribute("r", 5);               // 🔹 작은 원
         c.setAttribute("fill", node.color || "#ffffff");
         symbolEl = c;
       } else {
         const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
         t.setAttribute("x", p.x - 6);
         t.setAttribute("y", p.y + 4);
-        t.setAttribute("font-size", "12");    // 🔹 아이콘 텍스트도 조금 줄임
+        t.setAttribute("font-size", "12");    // 🔹 아이콘도 조금 줄임
         t.setAttribute("fill", node.color || "#ffffff");
         t.textContent = (shape === "sun") ? "☀" : "🌙";
         symbolEl = t;
@@ -721,25 +751,20 @@
       g.appendChild(symbolEl);
 
       const name = node.name || "";
-      let label = null;
-      let bg    = null;
-
       if (name) {
-        // 1) 먼저 텍스트를 만들어서 그룹에 추가
-        label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        // 먼저 텍스트 붙여서 BBox 계산
+        const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
         label.setAttribute("x", p.x);
         label.setAttribute("y", p.y + 10);
         label.setAttribute("class", "node-label");
         label.textContent = name;
         g.appendChild(label);
+        overlay.appendChild(g);   // BBox를 위해 DOM에 먼저 붙이기
 
-        // 2) BBox로 실제 너비/높이 계산
-        overlay.appendChild(g);      // DOM에 붙여야 getBBox 동작
         const bbox = label.getBBox();
         const padX = 3;
         const padY = 1;
-
-        bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
         bg.setAttribute("x", bbox.x - padX);
         bg.setAttribute("y", bbox.y - padY);
         bg.setAttribute("width", bbox.width + padX * 2);
@@ -748,15 +773,14 @@
         bg.setAttribute("rx", "3");
         bg.setAttribute("ry", "3");
 
-        // 텍스트 뒤로 배경을 넣기 위해 다시 정리
         g.removeChild(label);
-        g.insertBefore(bg, g.firstChild.nextSibling); // 심볼 다음에 bg
+        g.insertBefore(bg, g.firstChild.nextSibling); // 심볼 뒤에 배경
         g.appendChild(label);
       } else {
         overlay.appendChild(g);
       }
 
-      // 노드 클릭 (색/모양 변경, 삭제, 화살표 시작)
+      // 노드 클릭 이벤트
       g.addEventListener("click", ev => {
         ev.stopPropagation();
 
@@ -799,11 +823,6 @@
           alert("이 거점에서 출발하는 화살표 모드입니다. 도착 거점을 클릭하세요.");
         }
       });
-
-      // 이미 overlay에 붙인 상태가 아니라면 여기서 붙이기
-      if (!overlay.contains(g)) {
-        overlay.appendChild(g);
-      }
     });
   }
 
