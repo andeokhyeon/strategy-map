@@ -115,7 +115,7 @@
       background: #3a3a3a;
     }
     #chat-messages {
-      max-height: 35vh; /* 길이 늘림 */
+      max-height: 35vh;
       overflow-y: auto;
       background: #181818;
       border-radius: 8px;
@@ -198,14 +198,29 @@
       margin-bottom: 4px;
       font-size: 12px;
     }
+
+    /* 🔹 팀원 칩 리스트 (가로+세로로 배치) */
     .team-members {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
       max-height: 70px;
       overflow-y: auto;
-      font-size: 12px;
-      margin-bottom: 4px;
-      list-style: none;
+      margin: 0 0 4px 0;
       padding: 0;
     }
+    .team-member-chip {
+      background: #262626;
+      border-radius: 999px;
+      padding: 2px 6px;
+      font-size: 11px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .team-member-chip:hover {
+      background: #3a3a3a;
+    }
+
     .team-buttons {
       display: flex;
       flex-wrap: wrap;
@@ -568,14 +583,21 @@
       });
       card.appendChild(nameInput);
 
-      const ul = document.createElement("ul");
-      ul.className = "team-members";
-      Object.values(team.members || {}).forEach(memberName => {
-        const li = document.createElement("li");
-        li.textContent = memberName;
-        ul.appendChild(li);
+      // 🔹 팀원 칩으로 표시 + 클릭시 개별 삭제
+      const membersWrap = document.createElement("div");
+      membersWrap.className = "team-members";
+      Object.entries(team.members || {}).forEach(([mid, memberName]) => {
+        const chip = document.createElement("div");
+        chip.className = "team-member-chip";
+        chip.textContent = memberName;
+        chip.title = "클릭하면 삭제";
+        chip.addEventListener("click", () => {
+          if (!confirm(`"${memberName}" 삭제할까요?`)) return;
+          teamsRef.child(tid).child("members").child(mid).remove();
+        });
+        membersWrap.appendChild(chip);
       });
-      card.appendChild(ul);
+      card.appendChild(membersWrap);
 
       const btnRow = document.createElement("div");
       btnRow.className = "team-buttons";
@@ -709,7 +731,7 @@
     colorPickerCallback = null;
   });
 
-  // 🔹 화살표 색 선택 팝업 (클릭)
+  // 화살표 색 선택 팝업
   const arrowColorPicker   = document.getElementById("arrow-color-picker");
   const arrowColorButtons  = document.querySelectorAll(".arrow-color-btn");
   const arrowColorCancel   = document.getElementById("arrow-color-cancel");
@@ -793,7 +815,7 @@
     if (m) m.remove();
   }
 
-  // 전체 그리기 (화살표 작게 + 좀 더 짧게 + 머리색도 동일)
+  // 전체 그리기 (화살표 짧게 + 색 맞춰서)
   function drawAll() {
     const rect = mapImage.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return;
@@ -825,9 +847,9 @@
       const dy = y2 - y1;
       const len = Math.sqrt(dx*dx + dy*dy) || 1;
 
-      // 🔹 화살표 길이 살짝 줄이기 (양쪽에서 조금씩 안으로)
-      const offsetStart = 4;  // 시작점에서 조금 앞으로
-      const offsetEnd   = 8;  // 끝점에서 조금 뒤로
+      // 양쪽에서 살짝 안으로 줄이기
+      const offsetStart = 4;
+      const offsetEnd   = 8;
       x1 += (dx / len) * offsetStart;
       y1 += (dy / len) * offsetStart;
       x2 -= (dx / len) * offsetEnd;
@@ -835,7 +857,7 @@
 
       const color = link.color || fromNode.color || "#ffffff";
 
-      // 🔹 색마다 marker 하나씩 생성해서 머리색도 동일하게
+      // 색마다 marker 하나씩 생성해서 머리색도 동일
       let markerId = markerMap[color];
       if (!markerId) {
         markerId = "arrow-head-" + color.replace("#","");
