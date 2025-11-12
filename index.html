@@ -679,7 +679,7 @@
       const card = document.createElement("div");
       card.className = "team-card";
       const idx = tid.replace("team", "");
-      card.setAttribute("data-color", idx);   // 🔹 팀 번호에 따라 색상 다르게
+      card.setAttribute("data-color", idx);   // 팀 번호별 색상
 
       const nameInput = document.createElement("input");
       nameInput.className = "team-name-input";
@@ -874,8 +874,8 @@
   let flagAdding   = false;
   let flagAddColor = "#ff1744";
   let flagMoveId   = null;      // 메뉴에서 위치변경(지도 클릭)용
-  let draggingNodeId = null;    // 롱프레스 드래그용
-  let draggingFlagId = null;    // 롱프레스 드래그용
+  let draggingNodeId = null;    // 드래그 모드: 거점
+  let draggingFlagId = null;    // 드래그 모드: 깃발
 
   addFlagBtn.addEventListener("click", () => {
     flagColorPicker.style.display = "flex";
@@ -936,6 +936,9 @@
 
   // 지도 클릭: 깃발 추가 / 화살표 취소 / 새 거점 / (깃발 메뉴에서 위치변경)
   mapContainer.addEventListener("click", e => {
+    // 드래그 중이면 클릭 처리 안 함
+    if (draggingNodeId || draggingFlagId) return;
+
     const pos = getRelativePos(e.clientX, e.clientY);
 
     // 1) 깃발 이동 모드 (메뉴에서 '위치변경(지도 클릭)' 선택한 경우)
@@ -1150,41 +1153,9 @@
         overlay.appendChild(g);
       }
 
-      // 🔹 거점 롱프레스 → 드래그로 위치 세부 조정
-      let nodeLongPressTimer = null;
-      let nodeLongPressed    = false;
-
-      const startNodeLongPress = (ev) => {
-        nodeLongPressed = false;
-        nodeLongPressTimer = setTimeout(() => {
-          nodeLongPressed = true;
-          draggingNodeId = id;   // 드래그 모드 진입
-        }, 600);
-      };
-      const cancelNodeLongPress = () => {
-        if (nodeLongPressTimer) {
-          clearTimeout(nodeLongPressTimer);
-          nodeLongPressTimer = null;
-        }
-      };
-
-      g.addEventListener("mousedown", startNodeLongPress);
-      g.addEventListener("touchstart", (ev) => {
-        ev.preventDefault();
-        startNodeLongPress(ev);
-      }, { passive: false });
-      g.addEventListener("mouseup", cancelNodeLongPress);
-      g.addEventListener("mouseleave", cancelNodeLongPress);
-      g.addEventListener("touchend", cancelNodeLongPress);
-      g.addEventListener("touchcancel", cancelNodeLongPress);
-
-      // 노드 클릭 이벤트 (거점 메뉴 + 화살표 연결)
+      // 🔹 노드 클릭 이벤트 (메뉴 + 화살표 연결 + 이동 모드 시작)
       g.addEventListener("click", ev => {
         ev.stopPropagation();
-        if (nodeLongPressed) {
-          nodeLongPressed = false;
-          return; // 롱프레스 후의 클릭은 메뉴 열지 않음
-        }
 
         // 화살표 출발 노드가 이미 선택되어 있고, 다른 노드를 클릭한 경우 → 화살표 생성
         if (arrowStartNodeId && arrowStartNodeId !== id) {
@@ -1221,7 +1192,7 @@
         const clickX = ev.clientX;
         const clickY = ev.clientY;
         const menuWidth = 190;
-        const menuHeight = 160;
+        const menuHeight = 200;
 
         let left = clickX + 8;
         let top  = clickY + 8;
@@ -1256,7 +1227,19 @@
         });
         menu.appendChild(btnColor);
 
-        // 버튼 2: 여기서 출발 화살표 삭제
+        // 🔹 버튼 2: 거점 이동(드래그)
+        const btnMoveNode = document.createElement("button");
+        btnMoveNode.className = "node-menu-btn";
+        btnMoveNode.innerHTML =
+          `<span class="node-menu-icon">✋</span><span>거점 이동 (드래그)</span>`;
+        btnMoveNode.addEventListener("click", () => {
+          closeNodeMenu();
+          draggingNodeId = id;
+          alert("거점을 드래그해서 새 위치로 옮기세요. 손을 떼면 이동이 완료됩니다.");
+        });
+        menu.appendChild(btnMoveNode);
+
+        // 버튼 3: 여기서 출발 화살표 삭제
         const btnDelOutgoing = document.createElement("button");
         btnDelOutgoing.className = "node-menu-btn";
         btnDelOutgoing.innerHTML =
@@ -1272,7 +1255,7 @@
         });
         menu.appendChild(btnDelOutgoing);
 
-        // 버튼 3: 거점 삭제
+        // 버튼 4: 거점 삭제
         const btnDelete = document.createElement("button");
         btnDelete.className = "node-menu-btn";
         btnDelete.innerHTML =
@@ -1289,7 +1272,7 @@
         });
         menu.appendChild(btnDelete);
 
-        // 버튼 4: 화살표 연결 시작
+        // 버튼 5: 화살표 연결 시작
         const btnArrow = document.createElement("button");
         btnArrow.className = "node-menu-btn";
         btnArrow.innerHTML =
@@ -1348,7 +1331,7 @@
       flagShape.setAttribute("stroke-width", "1");
       g.appendChild(flagShape);
 
-      // 🔹 깃발 롱프레스 → 드래그로 위치 세부 조정
+      // 깃발 롱프레스 → 드래그로 위치 세부 조정 (기존 유지)
       let flagLongPressTimer = null;
       let flagLongPressed    = false;
 
@@ -1409,7 +1392,7 @@
         title.textContent = "깃발 메뉴";
         menu.appendChild(title);
 
-        // 위치변경 (클릭 방식 그대로 유지)
+        // 위치변경 (지도 클릭)
         const btnMove = document.createElement("button");
         btnMove.className = "node-menu-btn";
         btnMove.innerHTML =
@@ -1494,11 +1477,11 @@
     mapContainer.scrollLeft = Math.max(0, targetX - cw / 2);
     mapContainer.scrollTop  = Math.max(0, targetY - ch / 2);
 
-    // 🔹 검색된 거점 위에 형광색 ↓ 화살표 표시
+    // 🔹 검색된 거점 위에 형광색 ↓ 화살표 표시 (바로 위에 가깝게)
     const p = toScreenPos(foundNode);
     const arrow = document.createElementNS("http://www.w3.org/2000/svg", "text");
     arrow.setAttribute("x", p.x);
-    arrow.setAttribute("y", p.y - 20);  // 거점 살짝 위
+    arrow.setAttribute("y", p.y - 10);  // <= 이전 20에서 줄여서 바로 위쪽
     arrow.setAttribute("text-anchor", "middle");
     arrow.setAttribute("fill", "#00ff99");
     arrow.setAttribute("font-size", "30");
