@@ -80,10 +80,35 @@
       text-align: center;
     }
 
-    /* ===== 깃발 추가 버튼 ===== */
+    /* ===== 지도 밑 툴바(깃발 + 검색) ===== */
     #flag-bar {
       margin: 4px 6px 0;
-      text-align: right;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    #flag-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    #flag-right {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    #node-search-input {
+      border-radius: 999px;
+      border: 1px solid #333;
+      background: #181818;
+      color: #fff;
+      padding: 3px 8px;
+      font-size: 11px;
+      width: 120px;
+    }
+    #node-search-input::placeholder {
+      color: #777;
     }
 
     /* ===== 채팅 + 접속자 섹션 ===== */
@@ -194,6 +219,21 @@
       padding: 6px;
       margin-bottom: 6px;
     }
+
+    /* 🔹 각 팀 색상 구분 */
+    .team-card[data-color="1"] { background: #2b3e50; border-color: #5fa8d3; }
+    .team-card[data-color="2"] { background: #3e2b50; border-color: #ce93d8; }
+    .team-card[data-color="3"] { background: #50312b; border-color: #ffb74d; }
+    .team-card[data-color="4"] { background: #2b5030; border-color: #81c784; }
+    .team-card[data-color="5"] { background: #50492b; border-color: #d4e157; }
+    .team-card[data-color="6"] { background: #4a2b50; border-color: #ba68c8; }
+
+    .team-card input,
+    .team-card .team-member-chip,
+    .team-card .small-btn {
+      color: #fff !important;
+    }
+
     .team-name-input {
       width: 100%;
       background: #181818;
@@ -205,7 +245,6 @@
       font-size: 12px;
     }
 
-    /* 🔹 팀원 칩 리스트 */
     .team-members {
       display: flex;
       flex-wrap: wrap;
@@ -216,7 +255,7 @@
       padding: 0;
     }
     .team-member-chip {
-      background: #262626;
+      background: rgba(255,255,255,0.15);
       border-radius: 999px;
       padding: 2px 6px;
       font-size: 11px;
@@ -224,7 +263,7 @@
       white-space: nowrap;
     }
     .team-member-chip:hover {
-      background: #3a3a3a;
+      background: rgba(255,255,255,0.25);
     }
 
     .team-buttons {
@@ -367,7 +406,7 @@
     }
     .link-blink { animation: blink 1s infinite; }
 
-    /* ===== 거점 클릭 메뉴(깃발도 같이 사용) ===== */
+    /* ===== 거점/깃발 메뉴 ===== */
     #node-menu {
       position: fixed;
       z-index: 120;
@@ -412,7 +451,6 @@
       opacity: 0.9;
     }
 
-    /* ===== 반응형 ===== */
     @media (max-width: 600px) {
       #map-wrapper { height: 45vh; }
       #chat-messages { max-height: 28vh; }
@@ -436,9 +474,15 @@
   </div>
 </div>
 
-<!-- 🔹 지도 밑 깃발 추가 버튼 -->
+<!-- 🔹 지도 밑: 깃발 + 거점 검색 -->
 <div id="flag-bar">
-  <button id="add-flag-btn" class="small-btn">깃발 추가</button>
+  <div id="flag-left">
+    <button id="add-flag-btn" class="small-btn">깃발 추가</button>
+  </div>
+  <div id="flag-right">
+    <input id="node-search-input" placeholder="거점 검색">
+    <button id="node-search-btn" class="small-btn">검색</button>
+  </div>
 </div>
 
 <!-- ===== 2. 채팅 + 접속자 ===== -->
@@ -634,6 +678,8 @@
     Object.entries(teams).forEach(([tid, team]) => {
       const card = document.createElement("div");
       card.className = "team-card";
+      const idx = tid.replace("team", "");
+      card.setAttribute("data-color", idx);   // 🔹 팀 번호에 따라 색상 다르게
 
       const nameInput = document.createElement("input");
       nameInput.className = "team-name-input";
@@ -827,7 +873,9 @@
 
   let flagAdding   = false;
   let flagAddColor = "#ff1744";
-  let flagMoveId   = null;
+  let flagMoveId   = null;      // 메뉴에서 위치변경(지도 클릭)용
+  let draggingNodeId = null;    // 롱프레스 드래그용
+  let draggingFlagId = null;    // 롱프레스 드래그용
 
   addFlagBtn.addEventListener("click", () => {
     flagColorPicker.style.display = "flex";
@@ -886,11 +934,11 @@
     if (m) m.remove();
   }
 
-  // 지도 빈 곳 클릭 처리: 깃발 이동 / 깃발 추가 / 화살표 취소 / 새 거점
+  // 지도 클릭: 깃발 추가 / 화살표 취소 / 새 거점 / (깃발 메뉴에서 위치변경)
   mapContainer.addEventListener("click", e => {
     const pos = getRelativePos(e.clientX, e.clientY);
 
-    // 1) 깃발 위치 변경 모드
+    // 1) 깃발 이동 모드 (메뉴에서 '위치변경(지도 클릭)' 선택한 경우)
     if (flagMoveId) {
       flagsRef.child(flagMoveId).update({ x: pos.x, y: pos.y });
       flagMoveId = null;
@@ -929,6 +977,41 @@
       });
     });
   });
+
+  // 드래그로 세부 조정 (거점/깃발 공통)
+  function updateDragPosition(clientX, clientY) {
+    const pos = getRelativePos(clientX, clientY);
+    if (draggingNodeId) {
+      nodesRef.child(draggingNodeId).update({ x: pos.x, y: pos.y });
+    }
+    if (draggingFlagId) {
+      flagsRef.child(draggingFlagId).update({ x: pos.x, y: pos.y });
+    }
+  }
+
+  window.addEventListener("mousemove", e => {
+    if (draggingNodeId || draggingFlagId) {
+      e.preventDefault();
+      updateDragPosition(e.clientX, e.clientY);
+    }
+  });
+
+  window.addEventListener("touchmove", e => {
+    if (draggingNodeId || draggingFlagId) {
+      e.preventDefault();
+      const t = e.touches[0];
+      if (t) updateDragPosition(t.clientX, t.clientY);
+    }
+  }, { passive: false });
+
+  function endDrag() {
+    draggingNodeId = null;
+    draggingFlagId = null;
+  }
+
+  window.addEventListener("mouseup", endDrag);
+  window.addEventListener("touchend", endDrag);
+  window.addEventListener("touchcancel", endDrag);
 
   // 전체 그리기 (화살표 + 거점 + 깃발)
   function drawAll() {
@@ -1067,9 +1150,41 @@
         overlay.appendChild(g);
       }
 
+      // 🔹 거점 롱프레스 → 드래그로 위치 세부 조정
+      let nodeLongPressTimer = null;
+      let nodeLongPressed    = false;
+
+      const startNodeLongPress = (ev) => {
+        nodeLongPressed = false;
+        nodeLongPressTimer = setTimeout(() => {
+          nodeLongPressed = true;
+          draggingNodeId = id;   // 드래그 모드 진입
+        }, 600);
+      };
+      const cancelNodeLongPress = () => {
+        if (nodeLongPressTimer) {
+          clearTimeout(nodeLongPressTimer);
+          nodeLongPressTimer = null;
+        }
+      };
+
+      g.addEventListener("mousedown", startNodeLongPress);
+      g.addEventListener("touchstart", (ev) => {
+        ev.preventDefault();
+        startNodeLongPress(ev);
+      }, { passive: false });
+      g.addEventListener("mouseup", cancelNodeLongPress);
+      g.addEventListener("mouseleave", cancelNodeLongPress);
+      g.addEventListener("touchend", cancelNodeLongPress);
+      g.addEventListener("touchcancel", cancelNodeLongPress);
+
       // 노드 클릭 이벤트 (거점 메뉴 + 화살표 연결)
       g.addEventListener("click", ev => {
         ev.stopPropagation();
+        if (nodeLongPressed) {
+          nodeLongPressed = false;
+          return; // 롱프레스 후의 클릭은 메뉴 열지 않음
+        }
 
         // 화살표 출발 노드가 이미 선택되어 있고, 다른 노드를 클릭한 경우 → 화살표 생성
         if (arrowStartNodeId && arrowStartNodeId !== id) {
@@ -1090,7 +1205,7 @@
           return;
         }
 
-        // 같은 노드 다시 클릭 → 화살표 모드 취소
+        // 같은 노드를 다시 클릭 → 화살표 모드 취소
         if (arrowStartNodeId && arrowStartNodeId === id) {
           arrowStartNodeId = null;
           alert("화살표 시작이 취소되었습니다.");
@@ -1233,8 +1348,41 @@
       flagShape.setAttribute("stroke-width", "1");
       g.appendChild(flagShape);
 
+      // 🔹 깃발 롱프레스 → 드래그로 위치 세부 조정
+      let flagLongPressTimer = null;
+      let flagLongPressed    = false;
+
+      const startFlagLongPress = (ev) => {
+        flagLongPressed = false;
+        flagLongPressTimer = setTimeout(() => {
+          flagLongPressed = true;
+          draggingFlagId = id;   // 드래그 모드 진입
+        }, 600);
+      };
+      const cancelFlagLongPress = () => {
+        if (flagLongPressTimer) {
+          clearTimeout(flagLongPressTimer);
+          flagLongPressTimer = null;
+        }
+      };
+
+      g.addEventListener("mousedown", startFlagLongPress);
+      g.addEventListener("touchstart", (ev) => {
+        ev.preventDefault();
+        startFlagLongPress(ev);
+      }, { passive: false });
+      g.addEventListener("mouseup", cancelFlagLongPress);
+      g.addEventListener("mouseleave", cancelFlagLongPress);
+      g.addEventListener("touchend", cancelFlagLongPress);
+      g.addEventListener("touchcancel", cancelFlagLongPress);
+
       g.addEventListener("click", ev => {
         ev.stopPropagation();
+        if (flagLongPressed) {
+          flagLongPressed = false;
+          return; // 롱프레스 후 클릭은 메뉴 열지 않음
+        }
+
         // 깃발 메뉴 (node-menu 재사용)
         closeNodeMenu();
         const menu = document.createElement("div");
@@ -1261,7 +1409,7 @@
         title.textContent = "깃발 메뉴";
         menu.appendChild(title);
 
-        // 위치변경
+        // 위치변경 (클릭 방식 그대로 유지)
         const btnMove = document.createElement("button");
         btnMove.className = "node-menu-btn";
         btnMove.innerHTML =
@@ -1310,6 +1458,68 @@
       applyZoom();
     };
   }
+
+  // ===== 거점 검색 기능 =====
+  const nodeSearchInput = document.getElementById("node-search-input");
+  const nodeSearchBtn   = document.getElementById("node-search-btn");
+
+  // 🔍 거점 검색 + 형광 화살표 강조
+  function focusNodeByName(query) {
+    if (!query) return;
+    const q = query.trim();
+    if (!q) return;
+
+    let foundNode = null;
+    Object.values(nodes || {}).some(node => {
+      if (node.name && node.name.includes(q)) {
+        foundNode = node;
+        return true;
+      }
+      return false;
+    });
+
+    if (!foundNode) {
+      alert("해당 이름을 포함한 거점을 찾을 수 없습니다.");
+      return;
+    }
+
+    // 지도 이동
+    const rect = mapImage.getBoundingClientRect();
+    const imgWidth  = rect.width;
+    const imgHeight = rect.height;
+    const targetX = foundNode.x * imgWidth;
+    const targetY = foundNode.y * imgHeight;
+    const cw = mapContainer.clientWidth;
+    const ch = mapContainer.clientHeight;
+    mapContainer.scrollLeft = Math.max(0, targetX - cw / 2);
+    mapContainer.scrollTop  = Math.max(0, targetY - ch / 2);
+
+    // 🔹 검색된 거점 위에 형광색 ↓ 화살표 표시
+    const p = toScreenPos(foundNode);
+    const arrow = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    arrow.setAttribute("x", p.x);
+    arrow.setAttribute("y", p.y - 20);  // 거점 살짝 위
+    arrow.setAttribute("text-anchor", "middle");
+    arrow.setAttribute("fill", "#00ff99");
+    arrow.setAttribute("font-size", "30");
+    arrow.textContent = "↓";
+    arrow.style.animation = "blink 1s infinite";
+
+    overlay.appendChild(arrow);
+
+    // 10초 후 자동 제거
+    setTimeout(() => arrow.remove(), 10000);
+  }
+
+  nodeSearchBtn.addEventListener("click", () => {
+    focusNodeByName(nodeSearchInput.value);
+  });
+  nodeSearchInput.addEventListener("keydown", e => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      focusNodeByName(nodeSearchInput.value);
+    }
+  });
 </script>
 </body>
 </html>
