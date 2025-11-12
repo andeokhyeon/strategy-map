@@ -80,6 +80,12 @@
       text-align: center;
     }
 
+    /* ===== 깃발 추가 버튼 ===== */
+    #flag-bar {
+      margin: 4px 6px 0;
+      text-align: right;
+    }
+
     /* ===== 채팅 + 접속자 섹션 ===== */
     #chat-section {
       background: #101010;
@@ -199,7 +205,7 @@
       font-size: 12px;
     }
 
-    /* 🔹 팀원 칩 리스트 (가로+세로로 배치) */
+    /* 🔹 팀원 칩 리스트 */
     .team-members {
       display: flex;
       flex-wrap: wrap;
@@ -227,7 +233,7 @@
       gap: 4px;
     }
 
-    /* ===== 색상 + 모양 선택 팝업 ===== */
+    /* ===== 색상 + 모양 선택 팝업 (거점) ===== */
     #color-picker {
       position: fixed;
       inset: 0;
@@ -314,6 +320,39 @@
       font-weight: 500;
     }
 
+    /* ===== 깃발 색 선택 팝업 ===== */
+    #flag-color-picker {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.45);
+      z-index: 105;
+    }
+    #flag-color-panel {
+      background: #222;
+      border: 1px solid #555;
+      border-radius: 12px;
+      padding: 10px 12px;
+      min-width: 220px;
+      text-align: center;
+    }
+    #flag-color-buttons {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .flag-color-btn {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 2px solid #444;
+      cursor: pointer;
+    }
+
     /* ===== 거점 라벨 ===== */
     .node-label {
       font-size: 9px;
@@ -328,7 +367,7 @@
     }
     .link-blink { animation: blink 1s infinite; }
 
-    /* ===== 거점 클릭 메뉴 ===== */
+    /* ===== 거점 클릭 메뉴(깃발도 같이 사용) ===== */
     #node-menu {
       position: fixed;
       z-index: 120;
@@ -397,6 +436,11 @@
   </div>
 </div>
 
+<!-- 🔹 지도 밑 깃발 추가 버튼 -->
+<div id="flag-bar">
+  <button id="add-flag-btn" class="small-btn">깃발 추가</button>
+</div>
+
 <!-- ===== 2. 채팅 + 접속자 ===== -->
 <div id="chat-section">
   <div id="chat-header">
@@ -426,7 +470,7 @@
   <div id="teams"></div>
 </div>
 
-<!-- ===== 색상 + 모양 선택 팝업 ===== -->
+<!-- ===== 색상 + 모양 선택 팝업 (거점) ===== -->
 <div id="color-picker">
   <div id="color-picker-panel">
     <div style="margin-bottom:6px;">색을 고르고 모양을 선택한 후 거점 이름을 입력하세요</div>
@@ -453,6 +497,21 @@
   </div>
 </div>
 
+<!-- ===== 깃발 색 선택 팝업 ===== -->
+<div id="flag-color-picker">
+  <div id="flag-color-panel">
+    <div>깃발 색을 선택하세요</div>
+    <div id="flag-color-buttons">
+      <div class="flag-color-btn" data-color="#ff1744" style="background:#ff1744;"></div>
+      <div class="flag-color-btn" data-color="#2979ff" style="background:#2979ff;"></div>
+      <div class="flag-color-btn" data-color="#00e676" style="background:#00e676;"></div>
+      <div class="flag-color-btn" data-color="#ffea00" style="background:#ffea00;"></div>
+      <div class="flag-color-btn" data-color="#f500f5" style="background:#f500f5;"></div>
+    </div>
+    <button id="flag-color-cancel" class="small-btn" style="margin-top:8px;">취소</button>
+  </div>
+</div>
+
 <!-- Firebase & Script -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -473,6 +532,7 @@
 
   const nodesRef    = db.ref("mapNodes");
   const linksRef    = db.ref("mapLinks");
+  const flagsRef    = db.ref("flags");
   const chatRef     = db.ref("chatMessages");
   const presenceRef = db.ref("presence");
   const teamsRef    = db.ref("teams");
@@ -583,7 +643,7 @@
       });
       card.appendChild(nameInput);
 
-      // 🔹 팀원 칩으로 표시 + 클릭시 개별 삭제
+      // 팀원 칩
       const membersWrap = document.createElement("div");
       membersWrap.className = "team-members";
       Object.entries(team.members || {}).forEach(([mid, memberName]) => {
@@ -635,13 +695,14 @@
     });
   });
 
-  // ===== 지도 / 거점 / 화살표 =====
+  // ===== 지도 / 거점 / 화살표 / 깃발 =====
   const mapImage     = document.getElementById("map-image");
   const overlay      = document.getElementById("map-overlay");
   const mapContainer = document.getElementById("map-container");
 
   let nodes = {};
   let links = {};
+  let flags = {};
 
   let zoomLevel = 1;
   const zoomLabel = document.getElementById("zoom-label");
@@ -674,7 +735,7 @@
     drawAll();
   });
 
-  // 색상/모양 선택 팝업
+  // 색상/모양 선택 팝업 (거점)
   const colorPicker       = document.getElementById("color-picker");
   const cpColorsContainer = document.getElementById("color-picker-colors");
   const shapeButtons      = document.querySelectorAll(".shape-option");
@@ -758,6 +819,34 @@
     arrowColorCallback = null;
   });
 
+  // 깃발 색 선택 팝업
+  const flagColorPicker  = document.getElementById("flag-color-picker");
+  const flagColorButtons = document.querySelectorAll(".flag-color-btn");
+  const flagColorCancel  = document.getElementById("flag-color-cancel");
+  const addFlagBtn       = document.getElementById("add-flag-btn");
+
+  let flagAdding   = false;
+  let flagAddColor = "#ff1744";
+  let flagMoveId   = null;
+
+  addFlagBtn.addEventListener("click", () => {
+    flagColorPicker.style.display = "flex";
+  });
+
+  flagColorButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      flagAddColor = btn.dataset.color;
+      flagColorPicker.style.display = "none";
+      flagAdding = true;
+      alert("지도의 원하는 위치를 클릭해서 깃발을 추가하세요.");
+    });
+  });
+
+  flagColorCancel.addEventListener("click", () => {
+    flagColorPicker.style.display = "none";
+    flagAdding = false;
+  });
+
   // 좌표 변환
   function getRelativePos(clientX, clientY) {
     const rect = mapImage.getBoundingClientRect();
@@ -783,19 +872,51 @@
     links = snap.val() || {};
     drawAll();
   });
+  flagsRef.on("value", snap => {
+    flags = snap.val() || {};
+    drawAll();
+  });
 
   // 화살표 출발 노드
   let arrowStartNodeId = null;
 
-  // 지도 빈 곳 클릭 → 새 거점
+  // 기존 메뉴 제거
+  function closeNodeMenu() {
+    const m = document.getElementById("node-menu");
+    if (m) m.remove();
+  }
+
+  // 지도 빈 곳 클릭 처리: 깃발 이동 / 깃발 추가 / 화살표 취소 / 새 거점
   mapContainer.addEventListener("click", e => {
+    const pos = getRelativePos(e.clientX, e.clientY);
+
+    // 1) 깃발 위치 변경 모드
+    if (flagMoveId) {
+      flagsRef.child(flagMoveId).update({ x: pos.x, y: pos.y });
+      flagMoveId = null;
+      alert("깃발 위치가 변경되었습니다.");
+      return;
+    }
+
+    // 2) 깃발 추가 모드
+    if (flagAdding) {
+      flagsRef.push({
+        x: pos.x,
+        y: pos.y,
+        color: flagAddColor
+      });
+      flagAdding = false;
+      return;
+    }
+
+    // 3) 화살표 모드 취소
     if (arrowStartNodeId) {
       arrowStartNodeId = null;
       alert("화살표 시작이 취소되었습니다.");
       return;
     }
 
-    const pos = getRelativePos(e.clientX, e.clientY);
+    // 4) 새 거점 추가
     openColorShapePicker((color, shape) => {
       const name = (prompt("새 거점 이름을 입력하세요:") || "").trim();
       if (!name) return;
@@ -809,13 +930,7 @@
     });
   });
 
-  // 기존 메뉴가 있으면 제거
-  function closeNodeMenu() {
-    const m = document.getElementById("node-menu");
-    if (m) m.remove();
-  }
-
-  // 전체 그리기 (화살표 짧게 + 색 맞춰서)
+  // 전체 그리기 (화살표 + 거점 + 깃발)
   function drawAll() {
     const rect = mapImage.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return;
@@ -896,7 +1011,7 @@
       overlay.appendChild(path);
     });
 
-    // 노드
+    // 거점
     Object.entries(nodes || {}).forEach(([id, node]) => {
       const p = toScreenPos(node);
       const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -952,7 +1067,7 @@
         overlay.appendChild(g);
       }
 
-      // 노드 클릭 이벤트
+      // 노드 클릭 이벤트 (거점 메뉴 + 화살표 연결)
       g.addEventListener("click", ev => {
         ev.stopPropagation();
 
@@ -991,7 +1106,7 @@
         const clickX = ev.clientX;
         const clickY = ev.clientY;
         const menuWidth = 190;
-        const menuHeight = 140;
+        const menuHeight = 160;
 
         let left = clickX + 8;
         let top  = clickY + 8;
@@ -1084,6 +1199,106 @@
           document.addEventListener("click", closeHandler);
         }, 0);
       });
+    });
+
+    // 🔹 깃발 (거점보다 크게)
+    Object.entries(flags || {}).forEach(([id, flag]) => {
+      const pos = toScreenPos(flag);
+      const color = flag.color || "#ff1744";
+
+      const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      g.style.pointerEvents = "auto";
+
+      // 깃대
+      const pole = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      pole.setAttribute("x1", pos.x);
+      pole.setAttribute("y1", pos.y - 18);
+      pole.setAttribute("x2", pos.x);
+      pole.setAttribute("y2", pos.y + 6);
+      pole.setAttribute("stroke", "#f5f5f5");
+      pole.setAttribute("stroke-width", "2");
+      g.appendChild(pole);
+
+      // 깃발(삼각형)
+      const flagShape = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+      const p1x = pos.x;
+      const p1y = pos.y - 18;
+      const p2x = pos.x + 14;
+      const p2y = pos.y - 12;
+      const p3x = pos.x;
+      const p3y = pos.y - 6;
+      flagShape.setAttribute("points", `${p1x},${p1y} ${p2x},${p2y} ${p3x},${p3y}`);
+      flagShape.setAttribute("fill", color);
+      flagShape.setAttribute("stroke", "#000");
+      flagShape.setAttribute("stroke-width", "1");
+      g.appendChild(flagShape);
+
+      g.addEventListener("click", ev => {
+        ev.stopPropagation();
+        // 깃발 메뉴 (node-menu 재사용)
+        closeNodeMenu();
+        const menu = document.createElement("div");
+        menu.id = "node-menu";
+
+        const clickX = ev.clientX;
+        const clickY = ev.clientY;
+        const menuWidth = 190;
+        const menuHeight = 110;
+
+        let left = clickX + 8;
+        let top  = clickY + 8;
+        if (left + menuWidth > window.innerWidth - 8) {
+          left = window.innerWidth - menuWidth - 8;
+        }
+        if (top + menuHeight > window.innerHeight - 8) {
+          top = window.innerHeight - menuHeight - 8;
+        }
+        menu.style.left = left + "px";
+        menu.style.top  = top  + "px";
+
+        const title = document.createElement("div");
+        title.id = "node-menu-title";
+        title.textContent = "깃발 메뉴";
+        menu.appendChild(title);
+
+        // 위치변경
+        const btnMove = document.createElement("button");
+        btnMove.className = "node-menu-btn";
+        btnMove.innerHTML =
+          `<span class="node-menu-icon">📍</span><span>위치변경 (지도 클릭)</span>`;
+        btnMove.addEventListener("click", () => {
+          closeNodeMenu();
+          flagMoveId = id;
+          alert("새 위치를 클릭해서 깃발을 옮겨주세요.");
+        });
+        menu.appendChild(btnMove);
+
+        // 선택 깃발 삭제
+        const btnDel = document.createElement("button");
+        btnDel.className = "node-menu-btn";
+        btnDel.innerHTML =
+          `<span class="node-menu-icon">🗑</span><span>선택깃발 삭제</span>`;
+        btnDel.addEventListener("click", () => {
+          closeNodeMenu();
+          if (!confirm("이 깃발을 삭제할까요?")) return;
+          flagsRef.child(id).remove();
+        });
+        menu.appendChild(btnDel);
+
+        document.body.appendChild(menu);
+
+        const closeHandler = evt => {
+          if (!menu.contains(evt.target)) {
+            closeNodeMenu();
+            document.removeEventListener("click", closeHandler);
+          }
+        };
+        setTimeout(() => {
+          document.addEventListener("click", closeHandler);
+        }, 0);
+      });
+
+      overlay.appendChild(g);
     });
   }
 
